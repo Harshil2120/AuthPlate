@@ -7,12 +7,113 @@ import clientPromise from './mongodb'
 import { env } from './env'
 import { logger, SecurityEvents } from './logger'
 
+// Custom adapter that filters out unnecessary user data and tokens
+const customAdapter = {
+  ...MongoDBAdapter(clientPromise),
+  
+  // Override user creation to only store email
+  async createUser(user: any) {
+    const client = await clientPromise
+    const db = client.db()
+    const usersCollection = db.collection('users')
+    
+    // Only store email, ignore name, image, emailVerified
+    const cleanUser = {
+      email: user.email,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }
+    
+    const result = await usersCollection.insertOne(cleanUser)
+    return { id: result.insertedId.toString(), ...cleanUser }
+  },
+  
+  // Override user update to prevent storing unnecessary fields
+  async updateUser(user: any) {
+    const client = await clientPromise
+    const db = client.db()
+    const usersCollection = db.collection('users')
+    const { ObjectId } = await import('mongodb')
+    
+    // Get existing user to preserve email if new email is null
+    const existingUser = await usersCollection.findOne({ _id: new ObjectId(user.id) })
+    
+    // Only update email, ignore other fields
+    const cleanUser = {
+      email: user.email || existingUser?.email, // Preserve existing email if new is null
+      updatedAt: new Date()
+    }
+    
+    await usersCollection.updateOne(
+      { _id: new ObjectId(user.id) },
+      { $set: cleanUser }
+    )
+    
+    return { id: user.id, ...cleanUser }
+  },
+  
+  // Override user retrieval to only return email
+  async getUser(id: string) {
+    const client = await clientPromise
+    const db = client.db()
+    const usersCollection = db.collection('users')
+    const { ObjectId } = await import('mongodb')
+    
+    const user = await usersCollection.findOne({ _id: new ObjectId(id) })
+    if (!user) return null
+    
+    // Only return email and id
+    return {
+      id: user._id.toString(),
+      email: user.email
+    }
+  },
+  
+  // Override user retrieval by email
+  async getUserByEmail(email: string) {
+    const client = await clientPromise
+    const db = client.db()
+    const usersCollection = db.collection('users')
+    
+    const user = await usersCollection.findOne({ email })
+    if (!user) return null
+    
+    // Only return email and id
+    return {
+      id: user._id.toString(),
+      email: user.email
+    }
+  },
+  
+  async linkAccount(account: any) {
+    // Clean the account data before storing
+    const cleanAccount = {
+      userId: account.userId,
+      type: account.type,
+      provider: account.provider,
+      providerAccountId: account.providerAccountId,
+      refresh_token: account.refresh_token || null,
+      expires_at: account.expires_at || null,
+    }
+    
+    // Use the original adapter's linkAccount method with cleaned data
+    return MongoDBAdapter(clientPromise).linkAccount(cleanAccount)
+  }
+}
+
 export const authOptions = {
-  adapter: MongoDBAdapter(clientPromise),
+  adapter: customAdapter,
   providers: [
     GoogleProvider({
       clientId: env.GOOGLE_CLIENT_ID!,
       clientSecret: env.GOOGLE_CLIENT_SECRET!,
+      authorization: {
+        params: {
+          scope: 'openid email profile',
+          access_type: 'offline',
+          prompt: 'consent'
+        }
+      }
     }),
     // Only add GitHub provider if credentials are properly configured
     ...(env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET && 
@@ -21,6 +122,11 @@ export const authOptions = {
         ? [GitHubProvider({
             clientId: env.GITHUB_CLIENT_ID,
             clientSecret: env.GITHUB_CLIENT_SECRET,
+            authorization: {
+              params: {
+                scope: 'read:user user:email'
+              }
+            }
           })]
         : []
     ),
@@ -82,13 +188,103 @@ export const authOptions = {
     verifyRequest: '/auth/verify-request',
   },
   callbacks: {
+    async signIn({ user, account, profile }: { user: any; account: any; profile?: any }) {
+      try {
+        // Only process if we have an email and account info
+        if (!user.email || !account) {
+          return true
+        }
+
+        const client = await clientPromise
+        const db = client.db()
+        const usersCollection = db.collection('users')
+        const accountsCollection = db.collection('accounts')
+
+        // Check if there's an existing user with this email
+        const existingUser = await usersCollection.findOne({ email: user.email })
+        
+        if (existingUser) {
+          // Check if this provider account is already linked to the existing user
+          const existingAccount = await accountsCollection.findOne({
+            userId: existingUser._id,
+            provider: account.provider,
+            providerAccountId: account.providerAccountId
+          })
+
+          if (existingAccount) {
+            // Account is already linked, allow sign in
+            return true
+          }
+
+          // Check if this provider account is linked to a different user
+          const conflictingAccount = await accountsCollection.findOne({
+            provider: account.provider,
+            providerAccountId: account.providerAccountId
+          })
+
+          if (conflictingAccount && conflictingAccount.userId.toString() !== existingUser._id.toString()) {
+            // This provider account is already linked to a different user
+            logger.authEvent('Account linking conflict', user.id, {
+              userId: user.id,
+              metadata: {
+                email: user.email,
+                provider: account.provider,
+                providerAccountId: account.providerAccountId,
+                conflictingUserId: conflictingAccount.userId.toString()
+              }
+            })
+            return false // Prevent sign in due to conflict
+          }
+
+          // Link the account to the existing user
+          // Store only essential OAuth data, not unnecessary tokens
+          const accountData = {
+            userId: existingUser._id,
+            type: account.provider,
+            provider: account.provider,
+            providerAccountId: account.providerAccountId,
+            // Only store refresh_token if available (for token renewal)
+            refresh_token: account.refresh_token || null,
+            expires_at: account.expires_at || null,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          }
+
+          await accountsCollection.insertOne(accountData)
+
+          // Update the user object to use the existing user's ID
+          user.id = existingUser._id.toString()
+
+          logger.authEvent('Account automatically linked', existingUser._id.toString(), {
+            userId: existingUser._id.toString(),
+            metadata: {
+              email: user.email,
+              provider: account.provider,
+              providerAccountId: account.providerAccountId
+            }
+          })
+        }
+
+        return true
+      } catch (error) {
+        console.error('Account linking error in signIn callback:', error)
+        logger.authEvent('Account linking error in signIn', user.id, {
+          userId: user.id,
+          metadata: {
+            error: error instanceof Error ? error.message : 'Unknown error'
+          }
+        })
+        return true // Allow sign in even if linking fails
+      }
+    },
     async jwt({ token, user, trigger }: { token: any; user: any; trigger?: string }) {
       if (user) {
         token.id = user.id
         // Regenerate session on sign in
         if (trigger === 'signIn') {
           token.iat = Math.floor(Date.now() / 1000)
-          token.jti = require('crypto').randomBytes(16).toString('hex')
+          const crypto = await import('crypto')
+          token.jti = crypto.randomBytes(16).toString('hex')
         }
       }
       return token

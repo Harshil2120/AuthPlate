@@ -41,8 +41,6 @@ export default function Dashboard() {
                   </h3>
                   <div className="space-y-2 text-sm text-blue-800">
                     <p><strong>Email:</strong> {session?.user?.email}</p>
-                    <p><strong>Name:</strong> {session?.user?.name || 'Not provided'}</p>
-                    <p><strong>Image:</strong> {session?.user?.image ? 'Available' : 'Not provided'}</p>
                   </div>
                 </div>
                 
