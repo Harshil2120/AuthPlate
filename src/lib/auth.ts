@@ -20,15 +20,14 @@ const customAdapter = {
     // Only store email, ignore name, image, emailVerified
     const cleanUser = {
       email: user.email,
-      createdAt: new Date(),
-      updatedAt: new Date()
+      createdAt: new Date()
     }
     
     const result = await usersCollection.insertOne(cleanUser)
     return { id: result.insertedId.toString(), ...cleanUser }
   },
   
-  // Override user update to prevent storing unnecessary fields
+  // Override user update to prevent storing unnecessary fields like emailVerified
   async updateUser(user: any) {
     const client = await clientPromise
     const db = client.db()
@@ -38,10 +37,9 @@ const customAdapter = {
     // Get existing user to preserve email if new email is null
     const existingUser = await usersCollection.findOne({ _id: new ObjectId(user.id) })
     
-    // Only update email, ignore other fields
+    // Only update email if provided, ignore emailVerified and other fields
     const cleanUser = {
-      email: user.email || existingUser?.email, // Preserve existing email if new is null
-      updatedAt: new Date()
+      email: user.email || existingUser?.email
     }
     
     await usersCollection.updateOne(
@@ -195,6 +193,12 @@ export const authOptions = {
           return true
         }
 
+        // Skip account linking for email provider (magic link) to prevent duplicate account documents
+        // Email provider doesn't need account documents as it's not a traditional OAuth provider
+        if (account.provider === 'email') {
+          return true
+        }
+
         const client = await clientPromise
         const db = client.db()
         const usersCollection = db.collection('users')
@@ -245,9 +249,7 @@ export const authOptions = {
             providerAccountId: account.providerAccountId,
             // Only store refresh_token if available (for token renewal)
             refresh_token: account.refresh_token || null,
-            expires_at: account.expires_at || null,
-            createdAt: new Date(),
-            updatedAt: new Date()
+            expires_at: account.expires_at || null
           }
 
           await accountsCollection.insertOne(accountData)

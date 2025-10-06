@@ -2,7 +2,8 @@
  * Security utilities and helpers
  */
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
+import { randomBytes } from 'crypto'
 
 /**
  * Security headers configuration
@@ -41,7 +42,6 @@ export function applySecurityHeaders(response: NextResponse): NextResponse {
  * Generate cryptographically secure random string
  */
 export function generateSecureToken(length: number = 32): string {
-  const crypto = require('crypto')
-  return crypto.randomBytes(length).toString('hex')
+  return randomBytes(length).toString('hex')
 }
 

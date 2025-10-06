@@ -17,7 +17,8 @@ export interface LogEntry {
   sessionId?: string
   ip?: string
   userAgent?: string
-  metadata?: Record<string, any>
+  endpoint?: string
+  metadata?: Record<string, unknown>
 }
 
 class Logger {
