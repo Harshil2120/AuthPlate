@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import { useSession } from 'next-auth/react'
+import { Button } from '@/components/ui/button'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 
 interface AccountLinkingProps {
   onLinkSuccess?: () => void
@@ -101,27 +103,20 @@ export default function AccountLinking({ onLinkSuccess, onLinkError }: AccountLi
       <h3 className="text-lg font-semibold">Account Linking</h3>
       
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-          {error}
-        </div>
+        <Alert variant="destructive">
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
 
       <div className="space-y-2">
-        <button
-          onClick={() => linkAccount('google')}
-          disabled={isLinking}
-          className="w-full bg-blue-500 hover:bg-blue-700 disabled:bg-gray-400 text-white font-bold py-2 px-4 rounded"
-        >
+        <Button onClick={() => linkAccount('google')} disabled={isLinking} className="w-full">
           {isLinking ? 'Linking...' : 'Link Google Account'}
-        </button>
+        </Button>
         
-        <button
-          onClick={() => linkAccount('github')}
-          disabled={isLinking}
-          className="w-full bg-gray-800 hover:bg-gray-900 disabled:bg-gray-400 text-white font-bold py-2 px-4 rounded"
-        >
+        <Button onClick={() => linkAccount('github')} disabled={isLinking} className="w-full">
           {isLinking ? 'Linking...' : 'Link GitHub Account'}
-        </button>
+        </Button>
       </div>
     </div>
   )

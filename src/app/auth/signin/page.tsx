@@ -5,6 +5,26 @@ import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { validateEmail, validateCallbackUrl } from '@/lib/validation'
 import { logger } from '@/lib/logger'
+import { Button } from '@/components/ui/button'
+import { Wand } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+
+function GoogleIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 640 640"
+      fill="currentColor"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M564 325.8C564 467.3 467.1 568 324 568C186.8 568 76 457.2 76 320C76 182.8 186.8 72 324 72C390.8 72 447 96.5 490.3 136.9L422.8 201.8C334.5 116.6 170.3 180.6 170.3 320C170.3 406.5 239.4 476.6 324 476.6C422.2 476.6 459 406.2 464.8 369.7L324 369.7L324 284.4L560.1 284.4C562.4 297.1 564 309.3 564 325.8z"/>
+    </svg>
+  )
+}
 
 function SignInForm() {
   const [providers, setProviders] = useState<Record<string, { id: string; name: string }> | null>(null)
@@ -60,46 +80,41 @@ function SignInForm() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Sign in to your account
-          </h2>
-        </div>
-        <div className="mt-8 space-y-6">
+    <div className="min-h-screen flex items-center justify-center px-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <CardTitle className="text-3xl">Sign in</CardTitle>
+          <CardDescription>Choose a provider or use your email</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
           {/* OAuth Providers */}
           <div className="space-y-3">
             {providers &&
               Object.values(providers)
                 .filter((provider: { id: string }) => provider.id !== 'email')
                 .map((provider: { id: string; name: string }) => (
-                  <button
-                    key={provider.name}
-                    onClick={() => signIn(provider.id, { callbackUrl })}
-                    className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                  >
-                    Sign in with {provider.name}
-                  </button>
+                  <Button key={provider.name} className="w-full gap-2" onClick={() => signIn(provider.id, { callbackUrl })}>
+                    {provider.id === 'google' ? <GoogleIcon className="h-4 w-4" /> : null}
+                    <span>Sign in with {provider.name}</span>
+                  </Button>
                 ))}
           </div>
 
+          {/* Divider */}
           <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300" />
+            <div className="absolute inset-0 flex items-center" aria-hidden="true">
+              <span className="w-full border-t" />
             </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-gray-50 text-gray-500">Or continue with</span>
+            <div className="relative flex justify-center text-xs">
+              <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
             </div>
           </div>
 
           {/* Email Sign In */}
-          <form className="space-y-6" onSubmit={handleEmailSignIn}>
-            <div>
-              <label htmlFor="email" className="sr-only">
-                Email address
-              </label>
-              <input
+          <form className="space-y-4" onSubmit={handleEmailSignIn}>
+            <div className="grid gap-2">
+              <Label htmlFor="email">Email address</Label>
+              <Input
                 id="email"
                 name="email"
                 type="email"
@@ -107,23 +122,19 @@ function SignInForm() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Email address"
+                placeholder="you@example.com"
               />
             </div>
-
-            <div>
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
-              >
-                {isLoading ? 'Sending magic link...' : 'Send magic link'}
-              </button>
-            </div>
+            <Button type="submit" disabled={isLoading} className="w-full gap-2">
+              <Wand className="h-6 w-6" />
+              {isLoading ? 'Sending magic link...' : 'Send magic link'}
+            </Button>
           </form>
-        </div>
-      </div>
+        </CardContent>
+        <CardFooter className="justify-center text-xs text-muted-foreground">
+          By continuing, you agree to our terms and privacy policy.
+        </CardFooter>
+      </Card>
     </div>
   )
 }

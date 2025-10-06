@@ -8,7 +8,7 @@ function VerifyRequestForm() {
   const email = searchParams.get('email')
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-background text-foreground py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
           <div className="mx-auto h-12 w-12 text-green-600">
@@ -27,14 +27,14 @@ function VerifyRequestForm() {
               />
             </svg>
           </div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+          <h2 className="mt-6 text-center text-3xl font-extrabold">
             Check your email
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
+          <p className="mt-2 text-center text-sm text-muted-foreground">
             We&apos;ve sent a magic link to{' '}
-            <span className="font-medium text-indigo-600">{email}</span>
+            <span className="font-medium text-primary">{email}</span>
           </p>
-          <p className="mt-4 text-center text-sm text-gray-500">
+          <p className="mt-4 text-center text-sm text-muted-foreground">
             Click the link in the email to sign in. The link will expire in 24 hours.
           </p>
         </div>
