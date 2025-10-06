@@ -20,14 +20,15 @@ function useSystemPrefersDark(): boolean {
 
 function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>('light')
+  const systemPrefersDark = useSystemPrefersDark()
 
   useEffect(() => {
     const stored = (typeof window !== 'undefined'
       ? (window.localStorage.getItem('theme') as Theme | null)
       : null) || null
-    const initial: Theme = stored ?? (useSystemPrefersDark() ? 'dark' : 'light')
+    const initial: Theme = stored ?? (systemPrefersDark ? 'dark' : 'light')
     setThemeState(initial)
-  }, [])
+  }, [systemPrefersDark])
 
   useEffect(() => {
     if (typeof document === 'undefined') return
